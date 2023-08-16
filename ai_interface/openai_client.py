@@ -12,8 +12,7 @@ class OpenAiClient:
         openai.api_key = api_key
         self.max_tokens = max_tokens
 
-    @classmethod
-    def _set_prompt(cls, input_data: str) -> str:
+    def _set_prompt(self, *input_data) -> str:
         """
         returns a prompt to send to openai based on a given input
         :param input_data: the input that the prompt based on
