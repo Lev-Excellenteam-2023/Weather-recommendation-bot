@@ -3,6 +3,10 @@ from shared.consts import FeelingCategories
 
 
 class FeelingClassifier(OpenAiClient):
+    """
+    Communicates with openAi in order to catalog a
+    person's feeling in one of the predefined categories
+    """
     MODEL = "gpt-3.5-turbo"
     MAX_TOKENS = 200
     INPUT_INDEX = 0

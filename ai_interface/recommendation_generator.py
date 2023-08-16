@@ -2,6 +2,11 @@ from ai_interface.openai_client import OpenAiClient
 
 
 class RecommendationGenerator(OpenAiClient):
+    """
+    Communicates with openAi in order to generate
+    recommendation for behavior in certain weather based on
+    person's history
+    """
     MODEL = "gpt-3.5-turbo"
     MAX_TOKENS = 350
     HISTORY_INDEX = 0
