@@ -10,7 +10,7 @@ class RecommendationGenerator(OpenAiClient):
     def __init__(self, api_key):
         super().__init__(api_key, self.MAX_TOKENS)
 
-    def _set_prompt(self, *input_data) -> str:
+    def _set_prompt(self, input_data: tuple) -> str:
         ordered_input = f"History: {input_data[0]}. Forecast{input_data[1]}"
         return f"""
         You should act as an advisor on how to behave given the weather conditions and 

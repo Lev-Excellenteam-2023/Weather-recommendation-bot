@@ -12,7 +12,7 @@ class OpenAiClient:
         openai.api_key = api_key
         self.max_tokens = max_tokens
 
-    def _set_prompt(self, *input_data) -> str:
+    def _set_prompt(self, input_data: tuple) -> str:
         """
         returns a prompt to send to openai based on a given input
         :param input_data: the input that the prompt based on
@@ -20,7 +20,7 @@ class OpenAiClient:
         """
         raise NotImplementedError
 
-    def get_answer(self, input_data: str) -> str:
+    def get_answer(self, *input_data) -> str:
         """
         Retrieves answers from the OpenAI model.
         :param input_data: input on which the prompt is based.

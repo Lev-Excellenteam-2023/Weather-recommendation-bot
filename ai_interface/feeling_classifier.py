@@ -9,7 +9,7 @@ class FeelingClassifier(OpenAiClient):
     def __init__(self, api_key):
         super().__init__(api_key, self.MAX_TOKENS)
 
-    def _set_prompt(self, *input_data: str) -> str:
+    def _set_prompt(self, input_data: tuple) -> str:
         return f"""
         Given a free text of a person describing how he experiences the weather.
         Given the text, categorize its feeling into one of the following categories:
