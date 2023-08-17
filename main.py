@@ -2,52 +2,112 @@ from typing import Final
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-TOKEN: Final = '6594358995:AAGhbzwS5ERkx5RYEPdWkq1EYPFleiMk1IU'
+TOKEN: Final = None 
 BOT_USERNAME: Final = '@weather_edvider_bot'
 BOT = 'weatherEdviserBot'
 
-CHOOSING, MOISTURE, RAINING, FREE_TEXT = range(4)
+CHOOSING, MOISTURE, RAINING, FREE_TEXT, ADVICE = range(5)
+
+users_data = {}
 
 
 # commands:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # Extract the user's unique ID
+    user_id = update.message.from_user.id
+
     replay_options = ['update', 'advice']
     await update.message.reply_text(
-        'Hello! I will help you to decide what to wear today'
-        'If you want to inform me about the weather conditions insert: "update".'
-        'If you want an advice from me about what to wear insert: "advice".',
+        'Hello! I will help you to decide what to wear today. '
+        'If you want to inform me about the weather conditions, insert: "update". '
+        'If you want advice from me about what to wear, insert: "advice".',
         reply_markup=ReplyKeyboardMarkup(
-            replay_options, one_time_keyboard=True, input_field_placeholder="advice or update?"
-        ), )
+            keyboard=[replay_options], one_time_keyboard=True,
+            input_field_placeholder="advice or update?",
+            resize_keyboard=True
+        ),
+    )
+    # Create a user-specific dictionary and add it to users_data
+    users_data[user_id] = await create_user_dict()
+
+    return CHOOSING
+
+
+async def create_user_dict():
+    return {
+        "temperature": None,
+        "moisture": None,
+        "raining": None,
+        "free_text": None
+    }
+
+
+async def choosing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    replay_options = ['update', 'advice']
+
+    await update.message.reply_text(
+        'If you want to inform me about the weather conditions, insert: "update". '
+        'If you want advice from me about what to wear, insert: "advice".',
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[replay_options], one_time_keyboard=True,
+            input_field_placeholder="advice or update?",
+            resize_keyboard=True
+        ),
+    )
     return CHOOSING
 
 
 async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Extract the user's unique ID
+    user_id = update.message.from_user.id
+
     await update.message.reply_text('Please insert temperature value: ')
-    # TODO: save answer
+
+    # Save the user's answer in the user-specific dictionary
+    users_data[user_id]["temperature"] = update.message.text
+
     return MOISTURE
 
 
 async def moisture(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Extract the user's unique ID
+    user_id = update.message.from_user.id
+
     await update.message.reply_text('Please insert moisture rate: ')
-    # TODO: save answer
+
+    # Save the user's answer in the global dictionary
+    users_data[user_id]["moisture"] = update.message.text
+
     return RAINING
 
 
 async def raining(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Extract the user's unique ID
+    user_id = update.message.from_user.id
+
     reply_keyboard = [["yes", "no"]]
-    await update.message.reply_text('Is reining today? ',
-                                    reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                     input_field_placeholder="Yes or No?")
+    await update.message.reply_text('Is raining today? ',
+                                    reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                                     one_time_keyboard=True,
+                                                                     input_field_placeholder="Yes or No?",
+                                                                     resize_keyboard=True)
                                     )
-    # TODO: save answer
-    return RAINING
+    # Save the user's answer in the global dictionary
+    users_data[user_id]["raining"] = update.message.text.lower() == "yes"
+
+    return FREE_TEXT
 
 
 async def free_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Please enter in free style how are feeling today: ')
-    # TODO: save answer
-    return ConversationHandler.END
+    # Extract the user's unique ID
+    user_id = update.message.from_user.id
+
+    await update.message.reply_text('Please enter in free style how you are feeling today: ')
+
+    # Save the user's answer in the global dictionary
+    users_data[user_id]["free_text"] = update.message.text
+
+    return CHOOSING
 
 
 async def advice_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -71,49 +131,10 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-def update_handler() -> str:
-    pass
-
-
-def advice_handler() -> str:
-    pass
-
-
-# responses
-def handle_response(text: str) -> str:
-    if 'advice' in text:
-        return advice_handler()
-    elif 'update' in text:
-        return update_handler()
-    else:
-        return 'try again'
-
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message_type: str = update.message.chat.type  # indicate if it group or private chat
-    text: str = update.message.text  # incoming message
-
-    print(f'user ({update.message.chat.id}) in {message_type}: "{text}"')
-
-    if message_type == 'group':
-        if BOT_USERNAME in text:
-            new_text: str = text.replace(BOT_USERNAME, '').strip()
-            response: str = handle_response(new_text)
-    else:
-        response = handle_response(text)
-
-    print('Bot:', response)
-    await update.message.reply_text(response)
-
-
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f'Update {update} caused error {context.error}')
-
-
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token("TOKEN").build()
+    application = Application.builder().token(TOKEN).build()
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
@@ -122,16 +143,10 @@ def main() -> None:
             CHOOSING: [MessageHandler(filters.Regex("^update$"), update_command),
                        MessageHandler(filters.Regex("^advice$"), advice_command),
                        ],
-            # TYPING_CHOICE: [
-            #     MessageHandler(filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), regular_choice)
-            #             ],
-            # TYPING_REPLY: [
-            #     MessageHandler(
-            #         filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), received_information,)
-            #
             MOISTURE: [MessageHandler(filters.TEXT & ~filters.COMMAND, moisture)],
             RAINING: [MessageHandler(filters.TEXT & ~filters.COMMAND, raining)],
             FREE_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, free_text)],
+            ADVICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choosing)],
         },
         fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
     )
@@ -145,6 +160,45 @@ def main() -> None:
 if __name__ == "__main__":
     print('Bot is app and running!')
     main()
+
+# def update_handler() -> str:
+#     pass
+#
+#
+# def advice_handler() -> str:
+#     pass
+#
+#
+# # responses
+# def handle_response(text: str) -> str:
+#     if 'advice' in text:
+#         return advice_handler()
+#     elif 'update' in text:
+#         return update_handler()
+#     else:
+#         return 'try again'
+#
+#
+# async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     message_type: str = update.message.chat.type  # indicate if it group or private chat
+#     text: str = update.message.text  # incoming message
+#
+#     print(f'user ({update.message.chat.id}) in {message_type}: "{text}"')
+#
+#     if message_type == 'group':
+#         if BOT_USERNAME in text:
+#             new_text: str = text.replace(BOT_USERNAME, '').strip()
+#             response: str = handle_response(new_text)
+#     else:
+#         response = handle_response(text)
+#
+#     print('Bot:', response)
+#     await update.message.reply_text(response)
+#
+#
+# async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     print(f'Update {update} caused error {context.error}')
+
 
 # if __name__ == '__main__':
 #
