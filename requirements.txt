@@ -1,3 +1,8 @@
 firebase_admin
+<<<<<<< HEAD
 requests~=2.30.0
 openai~=0.27.6
+=======
+telegram~=0.0.1
+openai~=0.27.8
+>>>>>>> ab8c349 (Modified code in new file)
