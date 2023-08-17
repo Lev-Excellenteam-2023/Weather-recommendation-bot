@@ -2,11 +2,11 @@ from typing import Final
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
-TOKEN: Final = None 
+TOKEN: Final = ''
 BOT_USERNAME: Final = '@weather_edvider_bot'
 BOT = 'weatherEdviserBot'
 
-CHOOSING, MOISTURE, RAINING, FREE_TEXT, ADVICE = range(5)
+CHOOSING, DATE, GET_DATE, CITY, GET_CITY, FREE_TEXT, GET_FREE_TEXT = range(7)
 
 users_data = {}
 
@@ -35,9 +35,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 async def create_user_dict():
     return {
-        "temperature": None,
-        "moisture": None,
-        "raining": None,
+        "date": None,
+        "city": None,
         "free_text": None
     }
 
@@ -57,52 +56,46 @@ async def choosing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return CHOOSING
 
 
-async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Please enter date (format: dd.mm.yyyy): ')
+    return GET_DATE
+
+
+async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Extract the user's unique ID
     user_id = update.message.from_user.id
-
-    await update.message.reply_text('Please insert temperature value: ')
 
     # Save the user's answer in the user-specific dictionary
-    users_data[user_id]["temperature"] = update.message.text
+    users_data[user_id]["date"] = update.message.text
 
-    return MOISTURE
+    return CITY
 
 
-async def moisture(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Please insert your location (city): ')
+
+    return GET_DATE
+
+
+async def get_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Extract the user's unique ID
     user_id = update.message.from_user.id
 
-    await update.message.reply_text('Please insert moisture rate: ')
-
     # Save the user's answer in the global dictionary
-    users_data[user_id]["moisture"] = update.message.text
-
-    return RAINING
-
-
-async def raining(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Extract the user's unique ID
-    user_id = update.message.from_user.id
-
-    reply_keyboard = [["yes", "no"]]
-    await update.message.reply_text('Is raining today? ',
-                                    reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                                     one_time_keyboard=True,
-                                                                     input_field_placeholder="Yes or No?",
-                                                                     resize_keyboard=True)
-                                    )
-    # Save the user's answer in the global dictionary
-    users_data[user_id]["raining"] = update.message.text.lower() == "yes"
+    users_data[user_id]["city"] = update.message.text.lower()
 
     return FREE_TEXT
 
 
 async def free_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Please enter in free style how you are feeling today: ')
+
+    return GET_FREE_TEXT
+
+
+async def get_free_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Extract the user's unique ID
     user_id = update.message.from_user.id
-
-    await update.message.reply_text('Please enter in free style how you are feeling today: ')
 
     # Save the user's answer in the global dictionary
     users_data[user_id]["free_text"] = update.message.text
@@ -140,13 +133,15 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_command)],
         states={
-            CHOOSING: [MessageHandler(filters.Regex("^update$"), update_command),
+            CHOOSING: [MessageHandler(filters.Regex("^update$"), date),
                        MessageHandler(filters.Regex("^advice$"), advice_command),
                        ],
-            MOISTURE: [MessageHandler(filters.TEXT & ~filters.COMMAND, moisture)],
-            RAINING: [MessageHandler(filters.TEXT & ~filters.COMMAND, raining)],
+            DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, date)],
+            GET_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date)],
+            CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, city)],
+            GET_CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_city)],
             FREE_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, free_text)],
-            ADVICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choosing)],
+            GET_FREE_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_free_text)],
         },
         fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
     )
