@@ -1,1 +1,3 @@
 firebase_admin
+telegram~=0.0.1
+openai~=0.27.8
