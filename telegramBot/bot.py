@@ -127,6 +127,3 @@ def run(token: str) -> None:
     application.add_handler(conv_handler)
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
-
