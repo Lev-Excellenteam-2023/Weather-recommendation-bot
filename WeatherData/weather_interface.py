@@ -5,7 +5,7 @@ from shared.consts import WEATHER_ENDPOINT
 from typing import Dict, Optional
 
 
-def get_date_weather(date: datetime, location: str) -> Optional[Dict]:
+def get_date_weather(date: str, location: str) -> Optional[Dict]:
     """
     Get weather data for a specific date and location.
 
@@ -17,12 +17,11 @@ def get_date_weather(date: datetime, location: str) -> Optional[Dict]:
         dict: A dictionary containing weather information for the specified date and location.
               Returns None if weather data is not available.
     """
-    date_str = date.strftime('%Y-%m-%d')
     api_key = os.getenv("WEATHER_API")
     params = {
         "key": api_key,
         "q": location,
-        "dt": date_str,
+        "dt": date,
     }
 
     try:
