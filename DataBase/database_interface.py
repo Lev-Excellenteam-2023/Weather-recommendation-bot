@@ -9,7 +9,7 @@ class FirebaseHandler:
     """
     A utility class for interacting with Firebase Realtime Database.
     """
-
+    is_initilaize = False
     def __init__(self):
         """
         Initialize the FirebaseHandler instance.
@@ -22,8 +22,11 @@ class FirebaseHandler:
             constants in the 'const' module.
 
         """
-        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
-        firebase_admin.initialize_app(cred, {'databaseURL': DATABASE_URL})
+        if not self.is_initilaize:
+            cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
+            firebase_admin.initialize_app(cred, {'databaseURL': DATABASE_URL})
+            FirebaseHandler.is_initilaize = True
+
         self.ref = db.reference("/")
 
     def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -52,7 +55,7 @@ class FirebaseHandler:
         """
         return self.get_user(user_id) is not None
 
-    def add_user_indication(self, user_id: str, date: datetime, k_args: Dict) -> None:
+    def add_user_indication(self, user_id: str, date: str, k_args: Dict) -> None:
         """
         Add user indication data to the database for a specific date.
 
@@ -61,11 +64,10 @@ class FirebaseHandler:
             date (datetime): The date and time of the indication.
             k_args (Dict): Additional data to be added as key-value pairs.
         """
-        date_str = date.strftime('%Y-%m-%d %H:%M:%S')  # Convert datetime to string
         user_ref = self.ref.child(user_id)
         user_data = user_ref.get()
 
         if user_data is None:
-            user_ref.set({date_str: k_args})
+            user_ref.set({date: k_args})
         else:
-            user_ref.child(date_str).set(k_args)
+            user_ref.child(date).set(k_args)
