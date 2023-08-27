@@ -1,10 +1,18 @@
-from typing import Final
+import os
+from datetime import datetime
+
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+
+from DataBase.database_interface import FirebaseHandler
+from WeatherData.weather_interface import get_date_weather
+from ai_interface.feeling_classifier import FeelingClassifier
+from ai_interface.recommendation_generator import RecommendationGenerator
 
 CHOOSING, DATE, GET_DATE, GET_CITY, GET_FREE_TEXT = range(5)
 
 users_data = {}
+is_update = True
 
 
 # commands:
@@ -50,7 +58,9 @@ async def choosing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def date(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Please enter date (format: dd.mm.yyyy): ')
+    global is_update
+    is_update = update.message.text == "update"
+    await update.message.reply_text('Please enter date (format: y-m-d): ')
     return GET_DATE
 
 
@@ -64,20 +74,28 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global is_update
     # Extract the user's unique ID
     user_id = update.message.from_user.id
     # Save the user's answer in the global dictionary
     users_data[user_id]["city"] = update.message.text.lower()
-    await update.message.reply_text('Please enter in free style how you are feeling today: ')
-    return GET_FREE_TEXT
+    if is_update:
+        await update.message.reply_text('Please enter in free style how you are feeling today: ')
+        return GET_FREE_TEXT
+    else:
+        await advice_command(update,context)
+        is_update = True
+        return CHOOSING
 
 
 async def get_free_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    fdb = FirebaseHandler()
+    openai_fc = FeelingClassifier(os.getenv('OPENAI_API_KEY'))
     replay_options = ['update', 'advice']
     # Extract the user's unique ID
     user_id = update.message.from_user.id
     # Save the user's answer in the global dictionary
-    users_data[user_id]["free_text"] = update.message.text
+    users_data[user_id]["free_text"] = openai_fc.get_answer(update.message.text)
     await update.message.reply_text(
         'If you want to inform me about the weather conditions, insert: "update". '
         'If you want advice from me about what to wear, insert: "advice".',
@@ -86,14 +104,23 @@ async def get_free_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             input_field_placeholder="advice or update?",
             resize_keyboard=True
         ))
+    user_ind = get_date_weather(users_data[user_id]['date'], users_data[user_id]['city'])
+    user_ind['feeling'] = users_data[user_id]["free_text"]
+    fdb.add_user_indication(str(user_id), users_data[user_id]["date"], user_ind)
     return CHOOSING
 
 
 async def advice_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # TODO: get answer from GPT
+    global is_update
+    is_update = False
+    user_id = update.message.from_user.id
+    fdb = FirebaseHandler()
+    open_ai_rec = RecommendationGenerator(os.getenv('OPENAI_API_KEY'))
     text = update.message.text
     context.user_data["choice"] = text
     await update.message.reply_text('Here a suggestion of what to wear today')
+    await update.message.reply_text(open_ai_rec.get_answer(f"history: {fdb.get_user(str(update.message.from_user.id))}."
+                                                           , f"Forecast: {get_date_weather(users_data[user_id]['date'], users_data[user_id]['city'])}"))
     return CHOOSING
 
 
@@ -116,7 +143,7 @@ def run(token: str) -> None:
         entry_points=[CommandHandler("start", start_command)],
         states={
             CHOOSING: [MessageHandler(filters.Regex("^update$"), date),
-                       MessageHandler(filters.Regex("^advice$"), advice_command), ],
+                       MessageHandler(filters.Regex("^advice$"), date), ],
             DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, date)],
             GET_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date)],
             GET_CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_city)],
